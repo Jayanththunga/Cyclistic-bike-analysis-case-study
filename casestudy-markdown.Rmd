@@ -1,0 +1,329 @@
+---
+title: "Case-study"
+author: "Jayanth"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Process phase:
+## install packages:
+
+install the packages:
+
+```{r install packages}
+
+# install.packages("tidyverse")
+# install.packages("lubridate")
+# install.packages("geosphere")
+# install.packages("ggplot2")
+# install.packages("dplyr")
+
+```
+
+## import libraries:
+
+```{r loading libs} 
+library(tidyverse)
+library(lubridate)
+library(geosphere)
+library(ggplot2)
+library(dplyr)
+
+```
+
+
+## loading the dataset:
+
+```{r loading dataset}
+
+jan <- read.csv("dataset/202201-divvy-tripdata.csv")
+feb <- read.csv("dataset/202202-divvy-tripdata.csv")
+mar <- read.csv("dataset/202203-divvy-tripdata.csv")
+apr <- read.csv("dataset/202204-divvy-tripdata.csv")
+may <- read.csv("dataset/202205-divvy-tripdata.csv")
+jun <- read.csv("dataset/202206-divvy-tripdata.csv")
+jul <- read.csv("dataset/202207-divvy-tripdata.csv")
+aug <- read.csv("dataset/202208-divvy-tripdata.csv")
+sep <- read.csv("dataset/202209-divvy-tripdata.csv")
+oct <- read.csv("dataset/202210-divvy-tripdata.csv")
+nov <- read.csv("dataset/202211-divvy-tripdata.csv")
+dec <- read.csv("dataset/202212-divvy-tripdata.csv")
+
+```
+
+## merging all the data to create year data:
+
+
+```{r creatig year_data}
+year_data <- bind_rows(jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec)
+
+```
+
+## creating new columns day and month:
+
+```{r creating weekday and month}
+year_data$started_at <- as.POSIXct(year_data$started_at, format = "%Y-%m-%d %H:%M:%S")
+year_data$ended_at <- strptime(year_data$ended_at, format = "%Y-%m-%d %H:%M:%S")
+
+year_data <- year_data %>% 
+  mutate(ride_weekday = wday(started_at, label = TRUE, abbr = FALSE),
+         ride_month = month(started_at, label = TRUE, abbr = FALSE))
+```
+
+
+
+## add time in hours form start to end
+
+```{r creating time column}
+year_data <- year_data %>% 
+  mutate(ride_time_mins = as.numeric(difftime(ended_at, started_at, units="mins")))
+```
+
+
+
+## ride_distance:
+
+```{r adding ride distance}
+year_data$ride_distance <- distHaversine(matrix(c(year_data$start_lng, year_data$start_lat)
+                                                , ncol = 2),
+                 matrix(c(year_data$end_lng, year_data$end_lat), ncol = 2))
+
+year_data$ride_distance <- year_data$ride_distance/ 1000
+```
+
+
+## basic cleaing:
+### 1. removing nulls
+
+```{r dropping na}
+year_data <- drop_na(year_data)
+```
+
+
+### 2. removing negative distances 
+
+```{r removing neg distances}
+year_data <- year_data %>%
+  filter(ride_distance>0)
+
+```
+
+
+# Analyze phase:
+
+## finding no.of casual and member rides took place in the last year.
+
+```{r no_of casual and members}
+per_membership <- year_data %>% summarize(
+  casual_percentage = sum(member_casual=="casual")*100/n(),
+  member_percentage = sum(member_casual=="member")*100/n()
+)
+  
+per_membership
+```
+
+
+
+## finding different rideable_type took place in the last year.
+
+```{r rideable types}
+rideable_types <- unique(year_data$rideable_type)
+print(rideable_types)
+
+per_ridetypes <- year_data %>% summarize(
+  electric_bike_percentage = sum(rideable_type=="electric_bike")*100/n(),
+  classic_bike_percentage = sum(rideable_type=="classic_bike")*100/n(),
+  docked_bike_percentage = sum(rideable_type=="docked_bike")*100/n()
+)
+
+per_ridetypes
+```
+
+
+## summarize rideable types and group by their membership:
+
+```{r rideable types groupby membership}
+per_ridetypes_group_menbership <- year_data %>% group_by(member_casual) %>% summarize(
+  electric_bike_percentage = sum(rideable_type=="electric_bike")*100/n(),
+  classic_bike_percentage = sum(rideable_type=="classic_bike")*100/n(),
+  docked_bike_percentage = sum(rideable_type=="docked_bike")*100/n()
+)
+
+per_ridetypes_group_menbership
+```
+
+
+## monthly and weekly rides:
+
+### monthly:
+```{r monthly summarize data}
+
+monthly_summarize_data <- year_data %>% summarise(
+  Jan = sum(ride_month=="January")*100/n(),
+  Feb = sum(ride_month=="February")*100/n(),
+  Mar = sum(ride_month=="March")*100/n(),
+  Apr = sum(ride_month=="April")*100/n(),
+  May = sum(ride_month=="May")*100/n(),
+  Jun = sum(ride_month=="June")*100/n(),
+  Jul = sum(ride_month=="July")*100/n(),
+  Aug = sum(ride_month=="August")*100/n(),
+  Sep = sum(ride_month=="September")*100/n(),
+  Oct = sum(ride_month=="October")*100/n(),
+  Nov = sum(ride_month=="November")*100/n(),
+  Dec = sum(ride_month=="December")*100/n(),
+)
+
+monthly_summarize_data
+```
+
+
+### monthly_summarize data group by membership:
+
+```{r monthly_summarize_groupby_member_data}
+monthly_summarize_groupby_member_data <- year_data %>% group_by(member_casual) %>% summarise(
+  Jan = sum(ride_month=="January")*100/n(),
+  Feb = sum(ride_month=="February")*100/n(),
+  Mar = sum(ride_month=="March")*100/n(),
+  Apr = sum(ride_month=="April")*100/n(),
+  May = sum(ride_month=="May")*100/n(),
+  Jun = sum(ride_month=="June")*100/n(),
+  Jul = sum(ride_month=="July")*100/n(),
+  Aug = sum(ride_month=="August")*100/n(),
+  Sep = sum(ride_month=="September")*100/n(),
+  Oct = sum(ride_month=="October")*100/n(),
+  Nov = sum(ride_month=="November")*100/n(),
+  Dec = sum(ride_month=="December")*100/n(),
+)
+
+monthly_summarize_groupby_member_data
+```
+
+
+### Week Day:
+
+```{r weekly_summarize_data}
+weekly_summarize_data <- year_data %>% summarise(
+  Mon = sum(ride_weekday=="Monday")*100/n(),
+  Tue = sum(ride_weekday=="Tuesday")*100/n(),
+  Wed = sum(ride_weekday=="Wednesday")*100/n(),
+  Thu = sum(ride_weekday=="Thursday")*100/n(),
+  Fri = sum(ride_weekday=="Friday")*100/n(),
+  Sat = sum(ride_weekday=="Saturday")*100/n(),
+  Sun = sum(ride_weekday=="Sunday")*100/n(),
+)
+
+weekly_summarize_data
+```
+
+
+### week_summarize data group by membership:
+
+```{r weekly_summarize_groupby_member_data}
+weekly_summarize_groupby_member_data <- year_data %>% group_by(member_casual) %>% summarise(
+  Mon = sum(ride_weekday=="Monday")*100/n(),
+  Tue = sum(ride_weekday=="Tuesday")*100/n(),
+  Wed = sum(ride_weekday=="Wednesday")*100/n(),
+  Thu = sum(ride_weekday=="Thursday")*100/n(),
+  Fri = sum(ride_weekday=="Friday")*100/n(),
+  Sat = sum(ride_weekday=="Saturday")*100/n(),
+  Sun = sum(ride_weekday=="Sunday")*100/n(),
+)
+
+weekly_summarize_groupby_member_data
+```
+
+
+## average ride times
+
+```{r average ride time}
+avg_ridetime <- year_data %>% summarise(
+  avg_ride_time_in_mins = mean(ride_time_mins)
+)
+
+avg_ridetime
+```
+
+
+### group by membership and ride types:
+
+```{r average ride time group by membership}
+avg_ridetime_group <- year_data %>% group_by(member_casual, rideable_type) %>% 
+  summarise(avg_ride_time_in_mins = mean(ride_time_mins)
+)
+
+avg_ridetime_group
+```
+
+
+# Share phase:
+
+## no.of casual and membership raiders:
+
+```{r casual and membership raiders}
+ggplot(data = year_data) +
+  geom_bar(mapping = aes(x = member_casual, y = ..count..), stat = "count", fill="#8c1c0b") +
+  geom_text(mapping = aes(x = member_casual, y = ..count.., label = paste0(round((..count.. / sum(..count..)) * 100), "%")),
+    stat = "count",vjust = -0.5,size = 4) +
+  labs(title = "No. of Casual and Membership Raiders")
+```
+
+
+
+## different types of rides used:
+
+```{r differnt ride types}
+ggplot(data = year_data) +
+  geom_bar(mapping = aes(x=rideable_type, y = ..count..), stat = "count" ,fill = "#91aa31") +
+  geom_text(mapping = aes(x=rideable_type, y = ..count.., label = paste0(round((..count.. / sum(..count..)) * 100), "%")),
+            stat = "count",vjust = -0.5,size = 4)+
+  labs(title = "Different ride types")
+```
+
+
+## different rides and membership:
+
+```{r different rides and membership}
+ggplot(data = year_data) +
+  geom_bar(mapping = aes(x = member_casual, fill = rideable_type))+
+  labs(title = "different ride types and membership")
+
+```
+
+
+## Monthly bike rides:
+
+```{r monthly bike rides}
+ggplot(data = year_data) +
+  geom_bar(mapping = aes(x=ride_month, y = ..count.., fill = after_stat(count))
+           , stat = "count") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(title = "Monthly Bike rides")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+## Monthly bike rides and their membership
+
+```{r Monthly bike rides and their membership}
+ggplot(data = year_data) +
+  geom_bar(mapping = aes(x=ride_month, fill=member_casual),
+           stat = "count") +
+  labs(title = "Monthly Bike rides and membership")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+## weekly bike rides and membership
+
+```{r weekly bike rides and membership}
+ggplot(data = year_data) +
+  geom_bar(mapping = aes(x=ride_weekday, y = ..count.., fill = after_stat(count)),
+           stat = "count") +
+  labs(title = "Weekday Bike rides and membership")+
+  scale_fill_gradient(low = "#a5cfbf", high = "#207a58") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  facet_wrap(~member_casual)
+
+```
